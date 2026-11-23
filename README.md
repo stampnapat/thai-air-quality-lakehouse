@@ -8,23 +8,49 @@ Air4Thai only publishes the **latest** hour for each station, so history exists 
 
 Everything is deployed as code with Databricks Asset Bundles and tested in GitHub Actions.
 
+<!-- Dashboard screenshot: add docs/images/dashboard.png, then uncomment
 ![Dashboard](docs/images/dashboard.png)
+-->
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    A[Air4Thai API<br/>~180 stations, latest hour] -->|hourly, requests + fixed TLS chain| B[(UC Volume<br/>raw JSON<br/>ingest_date=YYYY-MM-DD)]
-    B -->|Auto Loader<br/>availableNow| C[Bronze<br/>air4thai_aqi]
-    C -->|clean, -1→NULL,<br/>dedup + MERGE| D[Silver<br/>aqi_hourly]
-    C -->|SCD Type 2 MERGE| E[Silver<br/>dim_station]
-    D --> F[Gold<br/>pm25_station_daily<br/>pm25_province_daily<br/>pm25_latest]
+flowchart TB
+    subgraph SRC[Sources]
+        A[Air4Thai API<br/>~180 stations · latest hour]
+        O[Open-Meteo API<br/>CAMS model · history]
+    end
+    subgraph RAW[Raw · UC Volume]
+        B[(raw JSON<br/>ingest_date=YYYY-MM-DD)]
+    end
+    subgraph BRZ[Bronze]
+        C[air4thai_aqi]
+    end
+    subgraph SLV[Silver]
+        D[aqi_hourly<br/>dedup + MERGE]
+        E[dim_station<br/>SCD Type 2]
+        M[pm25_model_hourly]
+    end
+    subgraph GLD[Gold]
+        F[pm25_station_daily<br/>pm25_province_daily<br/>pm25_latest]
+        G[pm25_model_province_daily<br/>pm25_measured_vs_model]
+    end
+    subgraph SRV[Serving]
+        H[AI/BI Dashboard]
+        I[SQL Alert<br/>province &gt; 37.5 µg/m³]
+    end
+    A -->|hourly · fixed TLS chain| B
+    B -->|Auto Loader| C
+    C --> D
+    C --> E
+    O -->|on-demand backfill| M
+    D --> F
     E --> F
-    O[Open-Meteo API<br/>CAMS model] -->|on-demand backfill| M[Silver<br/>pm25_model_hourly]
-    M --> G[Gold<br/>pm25_model_province_daily<br/>pm25_measured_vs_model]
-    F --> H[AI/BI Dashboard]
+    M --> G
+    F --> G
+    F --> H
     G --> H
-    F --> I[SQL Alert<br/>province > 37.5 µg/m³]
+    F --> I
 ```
 
 A Databricks Job runs the pipeline every hour at :15 (Bangkok time). It has 5 serverless tasks, and Gold waits for both Silver tasks:
@@ -126,6 +152,7 @@ tests/                         pytest suite (local PySpark)
 
 To let CI deploy to `prod` on every push to `main`, add the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`.
 
+<!-- Screenshots: add the images to docs/images/, then uncomment
 ## Screenshots
 
 | | |
@@ -133,6 +160,7 @@ To let CI deploy to `prod` on every push to `main`, add the repository secrets `
 | Job DAG (5 tasks) | ![Job](docs/images/job_dag.png) |
 | Unity Catalog lineage | ![Lineage](docs/images/lineage.png) |
 | SCD2 history for a moved station | ![SCD2](docs/images/scd2.png) |
+-->
 
 ## Limitations and next steps
 
