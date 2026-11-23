@@ -221,3 +221,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Databricks / project ---
+.databricks/
+.databrickscfg
+.env
+*.env
+.venv/
+.vscode/
+.idea/
+Thumbs.db
