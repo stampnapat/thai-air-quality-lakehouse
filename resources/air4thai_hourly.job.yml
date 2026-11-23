@@ -1,0 +1,44 @@
+resources:
+  jobs:
+    air4thai_hourly:
+      name: air4thai_hourly_ingest
+      description: Hourly Air4Thai PM2.5 pipeline - ingest -> Bronze -> Silver -> Gold
+      schedule:
+        quartz_cron_expression: "0 15 * * * ?"   # 15 minutes past every hour
+        timezone_id: Asia/Bangkok
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      max_concurrent_runs: 1
+      performance_target: STANDARD   # serverless, cheaper than PERFORMANCE_OPTIMIZED
+      tasks:
+        - task_key: 01_ingest_air4thai
+          notebook_task:
+            notebook_path: ../src/notebooks/01_ingest_air4thai.py
+          max_retries: 3
+          min_retry_interval_millis: 60000
+
+        - task_key: bronze_air4thai
+          depends_on:
+            - task_key: 01_ingest_air4thai
+          notebook_task:
+            notebook_path: ../src/notebooks/02_bronze_air4thai.py
+
+        - task_key: silver_aqi_hourly
+          depends_on:
+            - task_key: bronze_air4thai
+          notebook_task:
+            notebook_path: ../src/notebooks/04_silver_aqi_hourly.py
+
+        - task_key: silver_dim_station
+          depends_on:
+            - task_key: bronze_air4thai
+          notebook_task:
+            notebook_path: ../src/notebooks/05_silver_dim_station.py
+
+        - task_key: gold_pm25
+          depends_on:
+            - task_key: silver_aqi_hourly
+            - task_key: silver_dim_station
+          notebook_task:
+            notebook_path: ../src/notebooks/06_gold_pm25.py

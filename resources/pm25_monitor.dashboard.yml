@@ -1,0 +1,6 @@
+resources:
+  dashboards:
+    pm25_monitor:
+      display_name: Thailand PM2.5 Monitor
+      file_path: ../src/dashboards/pm25_monitor.lvdash.json
+      warehouse_id: ${var.warehouse_id}

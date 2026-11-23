@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    name: Unit tests (PySpark, local)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-java@v4   # Spark needs a JVM
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  bundle:
+    name: Validate / deploy Databricks bundle
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    # Runs only after the repo secrets DATABRICKS_HOST and DATABRICKS_TOKEN are set.
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@main
+        if: env.DATABRICKS_TOKEN != ''
+
+      - name: Validate bundle (prod)
+        if: env.DATABRICKS_TOKEN != ''
+        run: databricks bundle validate --strict -t prod
+
+      - name: Deploy to prod (push to main only)
+        if: env.DATABRICKS_TOKEN != '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: databricks bundle deploy -t prod
+
+      - name: Skip notice
+        if: env.DATABRICKS_TOKEN == ''
+        run: echo "DATABRICKS_HOST / DATABRICKS_TOKEN secrets not set - skipping bundle validate/deploy."

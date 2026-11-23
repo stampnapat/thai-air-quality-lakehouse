@@ -1,0 +1,448 @@
+{
+  "datasets": [
+    {
+      "name": "231f9562",
+      "displayName": "latest",
+      "queryLines": [
+        "SELECT * FROM air_quality.gold.pm25_latest"
+      ],
+      "catalog": "air_quality",
+      "schema": "gold"
+    },
+    {
+      "name": "7a24354b",
+      "displayName": "province_daily",
+      "queryLines": [
+        "SELECT * FROM air_quality.gold.pm25_province_daily"
+      ],
+      "catalog": "air_quality",
+      "schema": "gold"
+    },
+    {
+      "name": "ranking_today",
+      "displayName": "ranking_today",
+      "queryLines": [
+        "SELECT province_th, measured_date, pm25_avg, n_stations, n_stations_exceed, worst_station,\n",
+        "       CASE WHEN pm25_avg <= 15   THEN '1 ดีมาก'\n",
+        "            WHEN pm25_avg <= 25   THEN '2 ดี'\n",
+        "            WHEN pm25_avg <= 37.5 THEN '3 ปานกลาง'\n",
+        "            WHEN pm25_avg <= 75   THEN '4 เริ่มมีผลกระทบต่อสุขภาพ'\n",
+        "            ELSE                       '5 มีผลกระทบต่อสุขภาพ' END AS pm25_level\n",
+        "FROM air_quality.gold.pm25_province_daily\n",
+        "WHERE measured_date = (SELECT MAX(measured_date) FROM air_quality.gold.pm25_province_daily)\n",
+        "ORDER BY pm25_avg DESC\n",
+        "LIMIT 15\n"
+      ],
+      "catalog": "air_quality",
+      "schema": "gold"
+    }
+  ],
+  "pages": [
+    {
+      "name": "f18b9744",
+      "displayName": "ภาพรวม",
+      "layout": [
+        {
+          "widget": {
+            "name": "e4adb807",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "231f9562",
+                  "fields": [
+                    {
+                      "name": "pm25_level",
+                      "expression": "`pm25_level`"
+                    },
+                    {
+                      "name": "lat",
+                      "expression": "`lat`"
+                    },
+                    {
+                      "name": "lon",
+                      "expression": "`lon`"
+                    },
+                    {
+                      "name": "name_th",
+                      "expression": "`name_th`"
+                    },
+                    {
+                      "name": "province_th",
+                      "expression": "`province_th`"
+                    },
+                    {
+                      "name": "pm25",
+                      "expression": "`pm25`"
+                    },
+                    {
+                      "name": "measured_at",
+                      "expression": "`measured_at`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "symbol-map",
+              "encodings": {
+                "coordinates": {
+                  "latitude": {
+                    "fieldName": "lat"
+                  },
+                  "longitude": {
+                    "fieldName": "lon"
+                  }
+                },
+                "color": {
+                  "fieldName": "pm25_level",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "1 ดีมาก",
+                        "color": "#3BCCFF"
+                      },
+                      {
+                        "value": "2 ดี",
+                        "color": "#92D050"
+                      },
+                      {
+                        "value": "3 ปานกลาง",
+                        "color": "#FFFF00"
+                      },
+                      {
+                        "value": "4 เริ่มมีผลกระทบต่อสุขภาพ",
+                        "color": "#FFA200"
+                      },
+                      {
+                        "value": "5 มีผลกระทบต่อสุขภาพ",
+                        "color": "#F04646"
+                      }
+                    ]
+                  },
+                  "displayName": "ระดับ PM2.5"
+                },
+                "extra": [
+                  {
+                    "fieldName": "name_th"
+                  },
+                  {
+                    "fieldName": "province_th"
+                  },
+                  {
+                    "fieldName": "pm25"
+                  },
+                  {
+                    "fieldName": "measured_at"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              },
+              "mark": {
+                "opacity": 0.85
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "PM2.5 ล่าสุดรายสถานี"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "68cda992",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7a24354b",
+                  "fields": [
+                    {
+                      "name": "daily(measured_date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `measured_date`)"
+                    },
+                    {
+                      "name": "avg(pm25_avg)",
+                      "expression": "AVG(`pm25_avg`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(measured_date)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "วันที่"
+                },
+                "y": {
+                  "fieldName": "avg(pm25_avg)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "PM2.5 เฉลี่ย (µg/m³)",
+                  "format": {
+                    "type": "number",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "annotations": [
+                {
+                  "type": "horizontal-line",
+                  "encodings": {
+                    "y": {
+                      "dataValue": "37.5",
+                      "dataType": "DOUBLE"
+                    },
+                    "label": {
+                      "value": "มาตรฐาน 24 ชม. (37.5)"
+                    },
+                    "color": {
+                      "value": "#F04646"
+                    }
+                  }
+                }
+              ],
+              "data": {
+                "queryName": "main_query"
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "PM2.5 เฉลี่ยรายวัน",
+                "showDescription": true,
+                "description": "ค่าเฉลี่ยของจังหวัดที่เลือก (ไม่เลือก = ทั้งประเทศ)"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "7f64da84",
+            "queries": [
+              {
+                "name": "latest_province",
+                "query": {
+                  "datasetName": "231f9562",
+                  "fields": [
+                    {
+                      "name": "province_th",
+                      "expression": "`province_th`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "daily_province",
+                "query": {
+                  "datasetName": "7a24354b",
+                  "fields": [
+                    {
+                      "name": "province_th",
+                      "expression": "`province_th`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "province_th",
+                    "displayName": "จังหวัด",
+                    "queryName": "latest_province"
+                  },
+                  {
+                    "fieldName": "province_th",
+                    "displayName": "จังหวัด",
+                    "queryName": "daily_province"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "เลือกจังหวัด"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ranking_bar",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ranking_today",
+                  "fields": [
+                    {
+                      "name": "province_th",
+                      "expression": "`province_th`"
+                    },
+                    {
+                      "name": "pm25_avg",
+                      "expression": "`pm25_avg`"
+                    },
+                    {
+                      "name": "pm25_level",
+                      "expression": "`pm25_level`"
+                    },
+                    {
+                      "name": "worst_station",
+                      "expression": "`worst_station`"
+                    },
+                    {
+                      "name": "n_stations",
+                      "expression": "`n_stations`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "pm25_avg",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "PM2.5 เฉลี่ย (µg/m³)"
+                },
+                "y": {
+                  "fieldName": "province_th",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "value"
+                    }
+                  },
+                  "displayName": "จังหวัด"
+                },
+                "color": {
+                  "fieldName": "pm25_level",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "1 ดีมาก",
+                        "color": "#3BCCFF"
+                      },
+                      {
+                        "value": "2 ดี",
+                        "color": "#92D050"
+                      },
+                      {
+                        "value": "3 ปานกลาง",
+                        "color": "#FFFF00"
+                      },
+                      {
+                        "value": "4 เริ่มมีผลกระทบต่อสุขภาพ",
+                        "color": "#FFA200"
+                      },
+                      {
+                        "value": "5 มีผลกระทบต่อสุขภาพ",
+                        "color": "#F04646"
+                      }
+                    ]
+                  },
+                  "displayName": "ระดับ PM2.5"
+                },
+                "label": {
+                  "show": true
+                },
+                "extra": [
+                  {
+                    "fieldName": "worst_station",
+                    "displayName": "สถานีที่สูงสุด"
+                  },
+                  {
+                    "fieldName": "n_stations",
+                    "displayName": "จำนวนสถานี"
+                  }
+                ]
+              },
+              "annotations": [
+                {
+                  "type": "vertical-line",
+                  "encodings": {
+                    "x": {
+                      "dataValue": "37.5",
+                      "dataType": "DOUBLE"
+                    },
+                    "label": {
+                      "value": "มาตรฐาน 37.5"
+                    },
+                    "color": {
+                      "value": "#F04646"
+                    }
+                  }
+                }
+              ],
+              "data": {
+                "queryName": "main_query"
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "15 จังหวัดที่ PM2.5 สูงสุด (วันล่าสุด)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 12,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

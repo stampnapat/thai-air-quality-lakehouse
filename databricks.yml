@@ -1,0 +1,30 @@
+# Databricks Asset Bundle for the Thailand PM2.5 lakehouse.
+# Workspace host is NOT committed: the CLI reads it from your profile
+# (~/.databrickscfg) locally, or from DATABRICKS_HOST in CI.
+bundle:
+  name: thai_air_quality_lakehouse
+
+include:
+  - resources/*.yml
+
+variables:
+  warehouse_id:
+    description: SQL warehouse that runs the dashboard queries
+    lookup:
+      warehouse: Serverless Starter Warehouse
+
+targets:
+  # Personal copy for testing changes. Development mode prefixes resource
+  # names with "[dev <user>]" and pauses schedules, so it never runs by itself.
+  dev:
+    mode: development
+    default: true
+
+  # The real hourly pipeline.
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
