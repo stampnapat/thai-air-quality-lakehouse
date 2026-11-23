@@ -1,0 +1,26 @@
+resources:
+  alerts:
+    pm25_exceed:
+      display_name: "[${bundle.target}] PM2.5 above Thai 24h standard"
+      warehouse_id: ${var.warehouse_id}
+      # Provinces whose average PM2.5 today (Bangkok time) is above 37.5 ug/m3.
+      query_text: >-
+        SELECT COUNT_IF(pm25_avg > 37.5) AS provinces_over_standard
+        FROM ${var.catalog}.gold.pm25_province_daily
+        WHERE measured_date = to_date(from_utc_timestamp(current_timestamp(), 'Asia/Bangkok'))
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: provinces_over_standard
+          display: provinces_over_standard
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: ${var.alert_pause_status}
+        quartz_cron_schedule: "0 0 18 * * ?"   # every day 18:00
+        timezone_id: Asia/Bangkok

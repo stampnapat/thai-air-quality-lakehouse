@@ -3,7 +3,8 @@
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-CATALOG = "air_quality"
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
 BRONZE_TABLE = f"{CATALOG}.bronze.air4thai_aqi"
 SILVER_TABLE = f"{CATALOG}.silver.aqi_hourly"
 CHECKPOINT = f"/Volumes/{CATALOG}/silver/checkpoints/aqi_hourly"
@@ -106,8 +107,8 @@ print("เสร็จแล้ว เขียนลง", SILVER_TABLE)
 
 from pyspark.sql import functions as F
 
-bronze_n = spark.table("air_quality.bronze.air4thai_aqi").count()
-silver = spark.table("air_quality.silver.aqi_hourly")
+bronze_n = spark.table(BRONZE_TABLE).count()
+silver = spark.table(SILVER_TABLE)
 silver_n = silver.count()
 print(f"Bronze: {bronze_n:,} แถว  →  Silver: {silver_n:,} แถว  (ลบซ้ำไป {bronze_n - silver_n:,} แถว)")
 

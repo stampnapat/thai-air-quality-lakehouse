@@ -8,17 +8,27 @@ include:
   - resources/*.yml
 
 variables:
+  catalog:
+    description: Unity Catalog catalog for all tables and volumes (passed to notebooks as a job parameter)
+    default: air_quality
   warehouse_id:
-    description: SQL warehouse that runs the dashboard queries
+    description: SQL warehouse that runs the dashboard and alert queries
     lookup:
       warehouse: Serverless Starter Warehouse
+  alert_pause_status:
+    description: UNPAUSED in prod, PAUSED in dev so dev never emails
+    default: UNPAUSED
 
 targets:
   # Personal copy for testing changes. Development mode prefixes resource
-  # names with "[dev <user>]" and pauses schedules, so it never runs by itself.
+  # names with "[dev <user>]" and pauses job schedules. It writes to its own
+  # catalog, so testing never touches production tables.
   dev:
     mode: development
     default: true
+    variables:
+      catalog: air_quality_dev
+      alert_pause_status: PAUSED
 
   # The real hourly pipeline.
   prod:

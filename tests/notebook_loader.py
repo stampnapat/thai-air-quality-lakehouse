@@ -16,6 +16,17 @@ from pathlib import Path
 NOTEBOOK_DIR = Path(__file__).resolve().parents[1] / "src" / "notebooks"
 
 
+class _FakeWidgets:
+    """Stands in for dbutils.widgets: every widget returns the test catalog."""
+
+    def get(self, name: str) -> str:
+        return {"catalog": "air_quality_test"}.get(name, "")
+
+
+class _FakeDbutils:
+    widgets = _FakeWidgets()
+
+
 def _is_constant(node: ast.stmt) -> bool:
     if isinstance(node, ast.Assign):
         targets = node.targets
@@ -36,7 +47,7 @@ def load_definitions(notebook: str, **overrides) -> dict:
     tree = ast.parse(source)
     keep = (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef)
     tree.body = [n for n in tree.body if isinstance(n, keep) or _is_constant(n)]
-    namespace: dict = {"__name__": f"notebook_{notebook}"}
+    namespace: dict = {"__name__": f"notebook_{notebook}", "dbutils": _FakeDbutils()}
     exec(compile(tree, notebook, "exec"), namespace)
     namespace.update(overrides)
     return namespace

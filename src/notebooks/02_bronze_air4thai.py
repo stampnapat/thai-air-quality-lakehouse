@@ -1,7 +1,8 @@
 # Databricks notebook source
 from pyspark.sql import functions as F
 
-CATALOG = "air_quality"
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
 SOURCE_DIR = f"/Volumes/{CATALOG}/raw/landing/air4thai"
 TARGET_TABLE = f"{CATALOG}.bronze.air4thai_aqi"
 
@@ -50,7 +51,7 @@ print("เสร็จแล้ว เขียนลง", TARGET_TABLE)
 # COMMAND ----------
 
 
-df = spark.table("air_quality.bronze.air4thai_aqi")
+df = spark.table(TARGET_TABLE)
 print("จำนวนแถวทั้งหมด:", df.count())
 
 # แต่ละไฟล์ได้กี่แถว (ควรได้ไฟล์ละประมาณ 180)

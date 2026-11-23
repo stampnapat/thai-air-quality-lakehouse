@@ -1,0 +1,14 @@
+resources:
+  jobs:
+    # One-time: create the catalog, schemas and landing volume for a target.
+    setup_catalog:
+      name: setup_catalog
+      description: Create catalog, schemas (raw/bronze/silver/gold) and the landing volume
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+      performance_target: STANDARD
+      tasks:
+        - task_key: setup
+          notebook_task:
+            notebook_path: ../src/notebooks/00_setup.py

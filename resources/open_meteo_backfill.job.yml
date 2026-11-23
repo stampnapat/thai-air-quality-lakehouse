@@ -1,0 +1,21 @@
+resources:
+  jobs:
+    # On demand: fill history before Air4Thai collection started (model data).
+    open_meteo_backfill:
+      name: open_meteo_backfill
+      description: Backfill hourly PM2.5 history from Open-Meteo (CAMS model) into separate model tables
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: start_date
+          default: "2025-11-01"
+        - name: end_date
+          default: ""
+      performance_target: STANDARD
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tasks:
+        - task_key: backfill
+          notebook_task:
+            notebook_path: ../src/notebooks/07_backfill_open_meteo.py

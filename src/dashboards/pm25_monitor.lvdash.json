@@ -4,19 +4,15 @@
       "name": "231f9562",
       "displayName": "latest",
       "queryLines": [
-        "SELECT * FROM air_quality.gold.pm25_latest"
-      ],
-      "catalog": "air_quality",
-      "schema": "gold"
+        "SELECT * FROM pm25_latest"
+      ]
     },
     {
       "name": "7a24354b",
       "displayName": "province_daily",
       "queryLines": [
-        "SELECT * FROM air_quality.gold.pm25_province_daily"
-      ],
-      "catalog": "air_quality",
-      "schema": "gold"
+        "SELECT * FROM pm25_province_daily"
+      ]
     },
     {
       "name": "ranking_today",
@@ -28,13 +24,18 @@
         "            WHEN pm25_avg <= 37.5 THEN '3 ปานกลาง'\n",
         "            WHEN pm25_avg <= 75   THEN '4 เริ่มมีผลกระทบต่อสุขภาพ'\n",
         "            ELSE                       '5 มีผลกระทบต่อสุขภาพ' END AS pm25_level\n",
-        "FROM air_quality.gold.pm25_province_daily\n",
-        "WHERE measured_date = (SELECT MAX(measured_date) FROM air_quality.gold.pm25_province_daily)\n",
+        "FROM pm25_province_daily\n",
+        "WHERE measured_date = (SELECT MAX(measured_date) FROM pm25_province_daily)\n",
         "ORDER BY pm25_avg DESC\n",
         "LIMIT 15\n"
-      ],
-      "catalog": "air_quality",
-      "schema": "gold"
+      ]
+    },
+    {
+      "name": "model_daily",
+      "displayName": "model_daily",
+      "queryLines": [
+        "SELECT * FROM pm25_model_province_daily\n"
+      ]
     }
   ],
   "pages": [
@@ -271,6 +272,19 @@
                   ],
                   "disaggregated": false
                 }
+              },
+              {
+                "name": "model_province",
+                "query": {
+                  "datasetName": "model_daily",
+                  "fields": [
+                    {
+                      "name": "province_th",
+                      "expression": "`province_th`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
               }
             ],
             "spec": {
@@ -287,6 +301,11 @@
                     "fieldName": "province_th",
                     "displayName": "จังหวัด",
                     "queryName": "daily_province"
+                  },
+                  {
+                    "fieldName": "province_th",
+                    "displayName": "จังหวัด",
+                    "queryName": "model_province"
                   }
                 ]
               },
@@ -432,6 +451,89 @@
             "y": 10,
             "width": 12,
             "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "model_history",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "model_daily",
+                  "fields": [
+                    {
+                      "name": "daily(measured_date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `measured_date`)"
+                    },
+                    {
+                      "name": "avg(pm25_model_avg)",
+                      "expression": "AVG(`pm25_model_avg`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(measured_date)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "วันที่"
+                },
+                "y": {
+                  "fieldName": "avg(pm25_model_avg)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "PM2.5 แบบจำลอง (µg/m³)",
+                  "format": {
+                    "type": "number",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "annotations": [
+                {
+                  "type": "horizontal-line",
+                  "encodings": {
+                    "y": {
+                      "dataValue": "37.5",
+                      "dataType": "DOUBLE"
+                    },
+                    "label": {
+                      "value": "มาตรฐาน 24 ชม. (37.5)"
+                    },
+                    "color": {
+                      "value": "#F04646"
+                    }
+                  }
+                }
+              ],
+              "data": {
+                "queryName": "main_query"
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ประวัติย้อนหลัง 1 ปี (แบบจำลอง Open-Meteo/CAMS)",
+                "showDescription": true,
+                "description": "ค่าประมาณจากแบบจำลอง ไม่ใช่ค่าวัดจริง ใช้ดูฤดูฝุ่น (ไม่เลือกจังหวัด = ทั้งประเทศ)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 12,
+            "height": 7
           }
         }
       ],

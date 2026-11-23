@@ -10,6 +10,9 @@ resources:
         on_failure:
           - ${workspace.current_user.userName}
       max_concurrent_runs: 1
+      parameters:
+        - name: catalog          # every notebook reads it with dbutils.widgets.get("catalog")
+          default: ${var.catalog}
       performance_target: STANDARD   # serverless, cheaper than PERFORMANCE_OPTIMIZED
       tasks:
         - task_key: 01_ingest_air4thai

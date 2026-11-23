@@ -2,7 +2,8 @@
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-CATALOG = "air_quality"
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
 BRONZE_TABLE = f"{CATALOG}.bronze.air4thai_aqi"
 DIM_TABLE = f"{CATALOG}.silver.dim_station"
 CHECKPOINT = f"/Volumes/{CATALOG}/silver/checkpoints/dim_station"
@@ -112,7 +113,7 @@ print("เสร็จแล้ว เขียนลง", DIM_TABLE)
 
 from pyspark.sql import functions as F
 
-dim = spark.table("air_quality.silver.dim_station")
+dim = spark.table(DIM_TABLE)
 print("แถวทั้งหมด:", dim.count(), "| เวอร์ชันปัจจุบัน:", dim.filter("is_current").count())
 print("สถานีที่มีหลายเวอร์ชัน:", dim.groupBy("station_id").count().filter("count > 1").count())
 

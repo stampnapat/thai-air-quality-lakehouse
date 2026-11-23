@@ -1,6 +1,13 @@
 # Databricks notebook source
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
+spark.sql(f"USE CATALOG {CATALOG}")  # SQL cells below use schema.table names
+print("catalog:", CATALOG)
+
+# COMMAND ----------
+
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE air_quality.gold.pm25_station_daily
+# MAGIC CREATE OR REPLACE TABLE gold.pm25_station_daily
 # MAGIC CLUSTER BY (measured_date, province_th)
 # MAGIC COMMENT 'ค่า PM2.5 รายวันต่อสถานี (เฉลี่ยจากค่ารายชั่วโมง)'
 # MAGIC AS
@@ -11,13 +18,13 @@
 # MAGIC          CASE WHEN valid_from = MIN(valid_from) OVER (PARTITION BY station_id)
 # MAGIC               THEN TIMESTAMP_NTZ '1900-01-01 00:00:00'
 # MAGIC               ELSE valid_from END AS effective_from
-# MAGIC   FROM air_quality.silver.dim_station
+# MAGIC   FROM silver.dim_station
 # MAGIC ),
 # MAGIC hourly AS (
 # MAGIC   -- จับคู่ค่าที่วัด กับข้อมูลสถานี "เวอร์ชันที่ใช้อยู่ ณ เวลาที่วัด" (as-of join)
 # MAGIC   SELECT s.station_id, d.station_sk, d.name_th, d.province_th, d.station_type,
 # MAGIC          d.lat, d.lon, s.measured_date, s.pm25
-# MAGIC   FROM air_quality.silver.aqi_hourly s
+# MAGIC   FROM silver.aqi_hourly s
 # MAGIC   JOIN dim d
 # MAGIC     ON  s.station_id = d.station_id
 # MAGIC     AND s.measured_at >= d.effective_from
@@ -37,7 +44,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE air_quality.gold.pm25_province_daily
+# MAGIC CREATE OR REPLACE TABLE gold.pm25_province_daily
 # MAGIC CLUSTER BY (measured_date, province_th)
 # MAGIC COMMENT 'ค่า PM2.5 รายวันต่อจังหวัด'
 # MAGIC AS
@@ -48,13 +55,13 @@
 # MAGIC        COUNT_IF(exceeds_standard)  AS n_stations_exceed,
 # MAGIC        MAX_BY(name_th, pm25_avg)   AS worst_station,
 # MAGIC        BOOL_AND(is_complete_day)   AS is_complete_day
-# MAGIC FROM air_quality.gold.pm25_station_daily
+# MAGIC FROM gold.pm25_station_daily
 # MAGIC GROUP BY province_th, measured_date
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE air_quality.gold.pm25_latest
+# MAGIC CREATE OR REPLACE TABLE gold.pm25_latest
 # MAGIC COMMENT 'ค่า PM2.5 ล่าสุดของแต่ละสถานี สำหรับแผนที่'
 # MAGIC AS
 # MAGIC SELECT s.station_id, d.name_th, d.province_th, d.station_type, d.lat, d.lon,
@@ -65,8 +72,8 @@
 # MAGIC             WHEN s.pm25 <= 75   THEN '4 เริ่มมีผลกระทบต่อสุขภาพ'
 # MAGIC             ELSE                     '5 มีผลกระทบต่อสุขภาพ'
 # MAGIC        END AS pm25_level
-# MAGIC FROM air_quality.silver.aqi_hourly s
-# MAGIC JOIN air_quality.silver.dim_station d
+# MAGIC FROM silver.aqi_hourly s
+# MAGIC JOIN silver.dim_station d
 # MAGIC   ON s.station_id = d.station_id AND d.is_current
 # MAGIC WHERE s.pm25 IS NOT NULL
 # MAGIC   AND NOT s.is_stale
@@ -78,7 +85,7 @@
 # MAGIC %sql
 # MAGIC SELECT province_th, measured_date, pm25_avg, n_stations,
 # MAGIC        n_stations_exceed, worst_station, is_complete_day
-# MAGIC FROM air_quality.gold.pm25_province_daily
-# MAGIC WHERE measured_date = (SELECT MAX(measured_date) FROM air_quality.gold.pm25_province_daily)
+# MAGIC FROM gold.pm25_province_daily
+# MAGIC WHERE measured_date = (SELECT MAX(measured_date) FROM gold.pm25_province_daily)
 # MAGIC ORDER BY pm25_avg DESC
 # MAGIC LIMIT 10

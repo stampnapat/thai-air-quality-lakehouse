@@ -4,3 +4,5 @@ resources:
       display_name: Thailand PM2.5 Monitor
       file_path: ../src/dashboards/pm25_monitor.lvdash.json
       warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}   # queries use bare table names
+      dataset_schema: gold

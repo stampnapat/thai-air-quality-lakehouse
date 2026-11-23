@@ -32,7 +32,8 @@ print("ตัวอย่าง:", data["stations"][0]["nameTH"], data["stations
 
 # COMMAND ----------
 
-CATALOG = "air_quality"
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
 
 try:
     spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")

@@ -5,7 +5,8 @@ from datetime import datetime, timedelta, timezone
 import certifi
 import requests
 
-CATALOG = "air_quality"
+dbutils.widgets.text("catalog", "air_quality")  # job parameter; dev target uses air_quality_dev
+CATALOG = dbutils.widgets.get("catalog")
 LANDING_DIR = f"/Volumes/{CATALOG}/raw/landing/air4thai"
 API_URL = "https://air4thai.pcd.go.th/services/getNewAQI_JSON.php"
 BKK = timezone(timedelta(hours=7))  # เวลาไทย

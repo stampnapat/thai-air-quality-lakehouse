@@ -38,3 +38,9 @@ def test_intermediate_fingerprints_are_sha256():
     for url, fp in nb["INTERMEDIATES"].items():
         assert url.startswith("http://") and url.endswith(".lencr.org/")
         assert len(fp) == 64 and all(c in "0123456789abcdef" for c in fp)
+
+
+def test_paths_follow_the_catalog_job_parameter():
+    # The loader's fake dbutils returns "air_quality_test" for the catalog widget.
+    assert nb["CATALOG"] == "air_quality_test"
+    assert nb["LANDING_DIR"] == "/Volumes/air_quality_test/raw/landing/air4thai"
