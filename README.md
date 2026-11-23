@@ -45,7 +45,7 @@ flowchart TB
     B -->|Auto Loader| C
     C --> D
     C --> E
-    O -->|on-demand backfill| M
+    O -->|backfill + daily| M
     D --> F
     E --> F
     M --> G
@@ -112,16 +112,19 @@ From the first 8 hourly files, Bronze had 1,440 rows and Silver kept 1,002, with
 
 ## Measured vs model
 
-The Open-Meteo backfill comes from the CAMS model at about 45 km resolution, not from station measurements. `gold.pm25_measured_vs_model` compares the two on days that have both:
+The Open-Meteo backfill comes from the CAMS model at about 45 km resolution, not from station measurements. The first run loaded **1,671,840 hourly values** (180 stations, 2025-11-01 to 2026-11-22). After that, a daily job at 06:30 adds the latest days, re-fetching a 2-day overlap; `MERGE` keeps it free of duplicates.
 
-| Metric | Value |
-|---|---|
-| Station-days compared | _see `07_backfill_open_meteo` output_ |
-| Mean bias (model − measured) | _µg/m³_ |
-| Mean absolute error | _µg/m³_ |
-| Correlation | _r_ |
+The model history shows the **haze season** clearly. Chiang Mai's monthly average peaked around 54 µg/m³ in April 2026, against about 10 in the rainy season. Model values are never mixed into the measured tables.
 
-The model history is useful for showing the **haze season** (Chiang Mai monthly average peaked around 54 µg/m³ in April 2026, versus about 10 in the rainy season). It is never mixed into measured tables.
+`gold.pm25_measured_vs_model` compares the two sources on station-days that have both a complete measured day (≥ 18 hours) and model data. It fills one day at a time as live collection continues. Check accuracy with:
+
+```sql
+SELECT COUNT(*)                                  AS station_days,
+       ROUND(AVG(model_minus_measured), 1)       AS mean_bias,
+       ROUND(AVG(ABS(model_minus_measured)), 1)  AS mean_abs_error,
+       ROUND(CORR(pm25_measured, pm25_model), 2) AS correlation
+FROM air_quality.gold.pm25_measured_vs_model
+```
 
 ## Repository layout
 
@@ -144,7 +147,7 @@ tests/                         pytest suite (local PySpark)
    databricks bundle deploy -t dev
    databricks bundle run -t dev setup_catalog
    databricks bundle run -t dev air4thai_hourly
-   databricks bundle run -t dev open_meteo_backfill   # optional history
+   databricks bundle run -t dev open_meteo_backfill   # optional: one year of model history
    ```
 4. Run the tests locally (needs Java 17+):
    ```bash
@@ -154,15 +157,19 @@ tests/                         pytest suite (local PySpark)
 
 To let CI deploy to `prod` on every push to `main`, add the repository secrets `DATABRICKS_HOST` and `DATABRICKS_TOKEN`.
 
-<!-- Screenshots: add the images to docs/images/, then uncomment
 ## Screenshots
 
-| | |
-|---|---|
-| Job DAG (5 tasks) | ![Job](docs/images/job_dag.png) |
-| Unity Catalog lineage | ![Lineage](docs/images/lineage.png) |
-| SCD2 history for a moved station | ![SCD2](docs/images/scd2.png) |
--->
+**Job DAG.** Five serverless tasks deployed from the bundle. Gold waits for both Silver tasks.
+
+![Job DAG](docs/images/job_dag.png)
+
+**Unity Catalog lineage.** Lineage is captured automatically from `pm25_station_daily` to `pm25_province_daily` and on to its consumers.
+
+![Lineage](docs/images/lineage.png)
+
+**SCD2 + Delta time travel.** In the demo notebook, station o64 is moved on a shallow clone of `dim_station`. `VERSION AS OF 0` still shows the single original version (`station_sk` 177, `is_current = true`) from before the move.
+
+![SCD2 time travel](docs/images/scd2_time_travel.png)
 
 ## Limitations and next steps
 

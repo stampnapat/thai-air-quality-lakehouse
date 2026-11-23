@@ -8,6 +8,8 @@
 # MAGIC **ข้อควรระวัง:** ค่านี้เป็น *ค่าประมาณจากแบบจำลอง* ไม่ใช่ค่าที่สถานีวัดได้จริง
 # MAGIC จึงเก็บแยกตาราง (`pm25_model_hourly`) ไม่ปนกับข้อมูล Air4Thai
 # MAGIC
+# MAGIC รันครั้งแรกดึงตั้งแต่ FIRST_DATE จากนั้น job รันทุกวันเพื่อต่อข้อมูลเฉพาะวันล่าสุด
+# MAGIC
 # MAGIC Flow: สถานีปัจจุบันจาก `dim_station` → เรียก API ทีละ 50 สถานี → เก็บ JSON ดิบลง Volume
 # MAGIC → MERGE ลง Silver → สร้าง Gold รายจังหวัด + ตารางเทียบค่าจริงกับแบบจำลอง
 
@@ -21,7 +23,7 @@ import pandas as pd
 import requests
 
 dbutils.widgets.text("catalog", "air_quality")
-dbutils.widgets.text("start_date", "2025-11-01")
+dbutils.widgets.text("start_date", "")  # ว่าง = ต่อจากวันล่าสุดที่มี (ย้อน 2 วัน) หรือ FIRST_DATE ถ้ายังไม่มีตาราง
 dbutils.widgets.text("end_date", "")  # ว่าง = เมื่อวาน (เวลาไทย)
 
 CATALOG = dbutils.widgets.get("catalog")
@@ -30,6 +32,8 @@ API_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
 BATCH_SIZE = 50  # Open-Meteo รับหลายพิกัดในคำขอเดียว
 RAW_DIR = f"/Volumes/{CATALOG}/raw/landing/open_meteo"
 MODEL_TABLE = f"{CATALOG}.silver.pm25_model_hourly"
+FIRST_DATE = "2025-11-01"  # จุดเริ่มประวัติย้อนหลังรอบแรก
+OVERLAP_DAYS = 2           # ดึงซ้ำ 2 วันล่าสุดเผื่อแบบจำลองปรับค่า (MERGE กันซ้ำ)
 
 
 def chunks(items, size):
@@ -75,6 +79,11 @@ def to_rows(stations, results):
 
 end_date = dbutils.widgets.get("end_date") or (datetime.now(BKK).date() - timedelta(days=1)).isoformat()
 start_date = dbutils.widgets.get("start_date")
+if not start_date:
+    # รอบรายวัน: ดึงเฉพาะช่วงใหม่ แทนการดึงทั้งปีซ้ำ
+    last = (spark.sql(f"SELECT MAX(measured_date) AS d FROM {MODEL_TABLE}").first().d
+            if spark.catalog.tableExists(MODEL_TABLE) else None)
+    start_date = (last - timedelta(days=OVERLAP_DAYS)).isoformat() if last else FIRST_DATE
 
 stations = [r.asDict() for r in spark.sql(f"""
     SELECT station_id, lat, lon FROM {CATALOG}.silver.dim_station

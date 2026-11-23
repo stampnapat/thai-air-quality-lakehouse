@@ -1,6 +1,6 @@
 resources:
   jobs:
-    # On demand: fill history before Air4Thai collection started (model data).
+    # Model history: first run loads from 2025-11-01, then a daily run adds the latest days.
     open_meteo_backfill:
       name: open_meteo_backfill
       description: Backfill hourly PM2.5 history from Open-Meteo (CAMS model) into separate model tables
@@ -8,9 +8,12 @@ resources:
         - name: catalog
           default: ${var.catalog}
         - name: start_date
-          default: "2025-11-01"
+          default: ""          # empty = continue from the latest loaded day
         - name: end_date
           default: ""
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"   # daily 06:30, after yesterday is complete
+        timezone_id: Asia/Bangkok
       performance_target: STANDARD
       email_notifications:
         on_failure:
