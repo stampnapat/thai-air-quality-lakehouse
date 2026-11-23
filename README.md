@@ -8,9 +8,11 @@ Air4Thai only publishes the **latest** hour for each station, so history exists 
 
 Everything is deployed as code with Databricks Asset Bundles and tested in GitHub Actions.
 
-<!-- Dashboard screenshot: add docs/images/dashboard.png, then uncomment
-![Dashboard](docs/images/dashboard.png)
--->
+| Latest PM2.5 by station (Thai PCD colour bands) | Daily average vs the 24-hour standard |
+|---|---|
+| ![Station map](docs/images/dashboard_map.png) | ![Daily trend](docs/images/dashboard_trend.png) |
+
+*AI/BI dashboard on Databricks, refreshed by the hourly job. The trend covers the first days of live collection; the one-year model history is a separate chart.*
 
 ## Architecture
 
