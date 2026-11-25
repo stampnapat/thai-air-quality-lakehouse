@@ -19,6 +19,13 @@ resources:
         on_failure:
           - ${workspace.current_user.userName}
       tasks:
+        # Rebuilt daily: cheap (~800 rows), and picks up holidays the cabinet adds.
+        - task_key: silver_dim_date
+          notebook_task:
+            notebook_path: ../src/notebooks/08_silver_dim_date.py
+
         - task_key: backfill
+          depends_on:
+            - task_key: silver_dim_date   # the season table joins dim_date
           notebook_task:
             notebook_path: ../src/notebooks/07_backfill_open_meteo.py
