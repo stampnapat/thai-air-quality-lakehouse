@@ -152,13 +152,42 @@ CREATE OR REPLACE TABLE gold.pm25_model_province_daily
 CLUSTER BY (measured_date, province_th)
 COMMENT 'PM2.5 รายวันต่อจังหวัดจากแบบจำลอง Open-Meteo (ประวัติย้อนหลัง)'
 AS
+WITH dim AS (
+  -- same as-of rule as 06_gold_pm25: the first version counts as valid from the start
+  SELECT *,
+         CASE WHEN valid_from = MIN(valid_from) OVER (PARTITION BY station_id)
+              THEN TIMESTAMP_NTZ '1900-01-01 00:00:00'
+              ELSE valid_from END AS effective_from
+  FROM silver.dim_station
+)
 SELECT d.province_th, m.measured_date,
+       CAST(date_format(m.measured_date, 'yyyyMMdd') AS INT) AS date_key,  -- FK -> silver.dim_date
        ROUND(AVG(m.pm25_model), 1)    AS pm25_model_avg,
        ROUND(MAX(m.pm25_model), 1)    AS pm25_model_max_hourly,
        COUNT(DISTINCT m.station_id)   AS n_stations,
        AVG(m.pm25_model) > 37.5       AS exceeds_standard
 FROM silver.pm25_model_hourly m
-JOIN silver.dim_station d ON m.station_id = d.station_id AND d.is_current
+-- as-of join: the station version valid at that hour (a mobile station that moved
+-- counts in the province it was in at the time), not the current version
+JOIN dim d
+  ON  m.station_id = d.station_id
+  AND m.measured_at >= d.effective_from
+  AND (d.valid_to IS NULL OR m.measured_at < d.valid_to)
+GROUP BY ALL
+""")
+
+spark.sql("""
+CREATE OR REPLACE TABLE gold.pm25_model_province_season
+CLUSTER BY (province_th)
+COMMENT 'PM2.5 จากแบบจำลอง รายจังหวัด แยกตามฤดู (ร้อน/ฝน/หนาว) และฤดูหมอกควัน จาก silver.dim_date'
+AS
+SELECT p.province_th, d.season_year, d.season_th, d.is_haze_season,
+       COUNT(*)                                   AS days,
+       ROUND(AVG(p.pm25_model_avg), 1)            AS pm25_model_avg,
+       ROUND(MAX(p.pm25_model_avg), 1)            AS pm25_model_worst_day,
+       COUNT_IF(p.exceeds_standard)               AS days_over_standard
+FROM gold.pm25_model_province_daily p
+JOIN silver.dim_date d ON d.date_key = p.date_key
 GROUP BY ALL
 """)
 

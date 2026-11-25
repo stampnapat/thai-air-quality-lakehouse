@@ -33,6 +33,7 @@ print("catalog:", CATALOG)
 # MAGIC     AND NOT s.is_stale
 # MAGIC )
 # MAGIC SELECT station_id, station_sk, name_th, province_th, station_type, lat, lon, measured_date,
+# MAGIC        CAST(date_format(measured_date, 'yyyyMMdd') AS INT) AS date_key,  -- FK -> silver.dim_date
 # MAGIC        ROUND(AVG(pm25), 1) AS pm25_avg,
 # MAGIC        MAX(pm25)           AS pm25_max,
 # MAGIC        COUNT(*)            AS hours_with_data,
@@ -48,7 +49,7 @@ print("catalog:", CATALOG)
 # MAGIC CLUSTER BY (measured_date, province_th)
 # MAGIC COMMENT 'ค่า PM2.5 รายวันต่อจังหวัด'
 # MAGIC AS
-# MAGIC SELECT province_th, measured_date,
+# MAGIC SELECT province_th, measured_date, date_key,
 # MAGIC        ROUND(AVG(pm25_avg), 1)     AS pm25_avg,
 # MAGIC        MAX(pm25_max)               AS pm25_max_hourly,
 # MAGIC        COUNT(*)                    AS n_stations,
@@ -56,7 +57,7 @@ print("catalog:", CATALOG)
 # MAGIC        MAX_BY(name_th, pm25_avg)   AS worst_station,
 # MAGIC        BOOL_AND(is_complete_day)   AS is_complete_day
 # MAGIC FROM gold.pm25_station_daily
-# MAGIC GROUP BY province_th, measured_date
+# MAGIC GROUP BY province_th, measured_date, date_key
 
 # COMMAND ----------
 
