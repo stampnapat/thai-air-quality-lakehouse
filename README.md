@@ -32,6 +32,7 @@ flowchart TB
         D[aqi_hourly<br/>dedup + MERGE]
         E[dim_station<br/>SCD Type 2]
         M[pm25_model_hourly]
+        DD[dim_date<br/>holidays · seasons]
     end
     subgraph GLD[Gold]
         F[pm25_station_daily<br/>pm25_province_daily<br/>pm25_latest]
@@ -49,6 +50,7 @@ flowchart TB
     D --> F
     E --> F
     M --> G
+    DD --> G
     F --> G
     F --> H
     G --> H
@@ -81,10 +83,39 @@ A Databricks Job runs the pipeline every hour at :15 (Bangkok time). It has 5 se
 | Bronze | `bronze.air4thai_aqi` | 1 row per station per file | Exploded `stations`, plus `_source_file`, `_ingested_at`, `_rescued_data` |
 | Silver | `silver.aqi_hourly` | 1 row per station per measured hour | Typed values, `-1` → `NULL`, `is_stale`, `row_hash`, idempotent `MERGE` |
 | Silver | `silver.dim_station` | 1 row per station version | **SCD Type 2**: `station_sk`, `valid_from`, `valid_to`, `is_current`, `attr_hash` |
+| Silver | `silver.dim_date` | 1 row per day (2025 to end of next year) | `date_key` (yyyymmdd), Buddhist year, ISO week, Thai holidays incl. lunar and substitution days, TMD season, haze season (Jan–Apr), Thai fiscal year, `is_working_day` |
 | Gold | `gold.pm25_station_daily` | station × day | As-of join to the station version that was valid at measurement time; `is_complete_day` (≥ 18 h) |
 | Gold | `gold.pm25_province_daily` | province × day | Average of station averages, stations over the standard, worst station |
 | Gold | `gold.pm25_latest` | station | Latest reading, with Thai PCD colour band |
 | Silver/Gold | `pm25_model_hourly`, `pm25_model_province_daily`, `pm25_measured_vs_model` | — | Model backfill, kept **separate** from measured data |
+| Gold | `gold.pm25_model_province_season` | province × season | Model PM2.5 by TMD season and haze season, joined through `dim_date` |
+
+### Star schema
+
+Two dimensions answer *where* and *when* for every reading; the pollutants are
+columns of the fact, so no pollutant dimension is needed, and province stays an
+attribute of `dim_station` rather than a separate (snowflaked) table.
+
+```
+                 silver.dim_station (SCD2)            silver.dim_date
+                 station_sk · station_id              date_key · date
+                 province_th · lat/lon                season_th · is_haze_season
+                 valid_from / valid_to                is_holiday · fiscal_year_th
+                          \                            /
+            as-of join on  \                          /  date_key
+            station + time  \                        /
+                       gold.pm25_station_daily  →  gold.pm25_province_daily
+```
+
+`dim_date` keeps calendar rules in one place: "haze season", "working day" or
+"fiscal year" mean the same thing in every query and dashboard. Holidays come
+from the [`holidays`](https://github.com/vacanza/holidays) library (MIT), which
+tracks lunar-calendar days, substitution days and one-off cabinet holidays; the
+table is rebuilt daily so newly announced holidays appear without code changes.
+
+Example: in the model history, Chiang Mai averaged 32.5 µg/m³ in the 2026 hot
+season with 29 days over the 37.5 standard, against 7.5 µg/m³ and none in the
+rainy season.
 
 ## Data quality findings
 
@@ -105,6 +136,7 @@ From the first 8 hourly files, Bronze had 1,440 rows and Silver kept 1,002, with
 
 - **Broken TLS chain on the source API.** Air4Thai serves a Let's Encrypt certificate but sends the wrong intermediate certificates, so `requests` fails with `CERTIFICATE_VERIFY_FAILED`. Instead of disabling verification (`verify=False`), the ingest notebook downloads the missing Let's Encrypt intermediates and checks their **SHA-256 fingerprints**. It then appends them to the `certifi` bundle and passes that bundle to `verify=`.
 - **Idempotent at every layer.** Auto Loader checkpoints, `availableNow` triggers, and `MERGE` with `row_hash`/`attr_hash` mean any task can be re-run with no duplicates and no needless updates.
+- **As-of joins everywhere.** Gold tables join each reading to the station version valid *at that hour* (also in the model tables), so a mobile station that moves counts in the province it was in at the time.
 - **Out-of-order safe SCD2.** The dimension `MERGE` uses the merge-key trick (`UNION ALL` of updates with a `NULL` key) and ignores versions older than the current one.
 - **Auto Loader gotcha.** With `inferColumnTypes=false`, the nested `stations` array is inferred as a STRING and `explode` fails. The fix was to enable type inference (leaf values stay strings because Air4Thai quotes numbers) and reset the schema location.
 - **Dev/prod isolation.** Every notebook reads a `catalog` job parameter. The `dev` bundle target writes to `air_quality_dev`, so testing never touches production tables.
@@ -131,7 +163,7 @@ FROM air_quality.gold.pm25_measured_vs_model
 ```
 databricks.yml                 bundle: variables + dev/prod targets
 resources/                     jobs, dashboard, alert (one resource per file)
-src/notebooks/                 00_setup … 07_backfill_open_meteo
+src/notebooks/                 00_setup … 08_silver_dim_date
 src/dashboards/                AI/BI dashboard definition (.lvdash.json)
 src/demo/99_demo_scd2.py       SCD2 + time-travel demo (not scheduled)
 tests/                         pytest suite (local PySpark)
